@@ -19,17 +19,25 @@ def jpeg_to_svg(jpeg_path: str, svg_path: str, threshold: int = 128):
         f.write('<svg xmlns="http://www.w3.org/2000/svg" ')
         f.write(f'width="{image.width}" height="{image.height}">\n')
         for curve in path:
+            # Each curve represents a closed path starting at curve.start_point
             f.write('<path d="')
+            # Move to the starting point of this curve
+            start = curve.start_point
+            f.write(f'M{start.x},{start.y} ')
             for segment in curve:
                 if segment.is_corner:
+                    # Corner segments specify a control point (c) and end point
                     c = segment.c
-                    f.write(f'M{segment.start_point.x},{segment.start_point.y} ')
+                    end = segment.end_point
                     f.write(f'L{c.x},{c.y} ')
+                    f.write(f'L{end.x},{end.y} ')
                 else:
+                    # Bezier curve with control points c1/c2
                     c1, c2 = segment.c1, segment.c2
-                    f.write(f'M{segment.start_point.x},{segment.start_point.y} ')
-                    f.write(f'C{c1.x},{c1.y} {c2.x},{c2.y} {segment.end_point.x},{segment.end_point.y} ')
-            f.write('" fill="black"/>\n')
+                    end = segment.end_point
+                    f.write(f'C{c1.x},{c1.y} {c2.x},{c2.y} {end.x},{end.y} ')
+            # Close the path
+            f.write('Z" fill="black"/>\n')
         f.write('</svg>\n')
 
 
