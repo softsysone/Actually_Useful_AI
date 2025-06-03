@@ -16,8 +16,8 @@ def jpeg_to_svg(
     svg_path: str,
     threshold: int = 128,
     *,
-    fill: str = "black",
-    colors: int = 0,
+    fill: str | None = None,
+    colors: int = 8,
 ):
     """Convert a JPEG image to an SVG using potrace.
 
@@ -29,8 +29,9 @@ def jpeg_to_svg(
         Output SVG file path.
     threshold: int, optional
         Grayscale threshold (0-255) for binarization.
-    fill: str, optional
-        Fill color used for the generated path.
+    fill: str | None, optional
+        Fill color used for monochrome output. If ``None`` and ``colors`` is
+        greater than 1, the image colors are preserved via quantization.
     """
     image = Image.open(jpeg_path).convert("RGB")
 
@@ -92,7 +93,7 @@ def jpeg_to_svg(
                         f.write(
                             f'C{c1.x},{c1.y} {c2.x},{c2.y} {end.x},{end.y} '
                         )
-                f.write(f'Z" fill="{fill}"/>\n')
+                f.write(f'Z" fill="{fill or "black"}"/>\n')
 
         f.write("</svg>\n")
 
@@ -116,14 +117,16 @@ def main() -> None:
     )
     parser.add_argument(
         "--fill",
-        default="black",
-        help="Fill color for the generated path",
+        default=None,
+        help="Fill color for monochrome output",
     )
     parser.add_argument(
         "--colors",
         type=int,
-        default=0,
-        help="Number of colors to preserve. If >1, performs color vectorization",
+        default=8,
+        help=(
+            "Number of colors to preserve. If >1, performs color vectorization."
+        ),
     )
 
     args = parser.parse_args()
