@@ -42,10 +42,11 @@ def jpeg_to_svg(
         if colors and colors > 1:
             # Quantize image to the requested number of colors
             quantized = image.convert("P", palette=Image.Palette.ADAPTIVE, colors=colors)
-            palette = quantized.getpalette()[: colors * 3]
+            palette = quantized.getpalette()  # full palette
             data = np.array(quantized)
 
-            for idx in range(colors):
+            # Use only the indices that actually appear in the quantized image.
+            for idx in np.unique(data):
                 mask = data == idx
                 if not mask.any():
                     continue
