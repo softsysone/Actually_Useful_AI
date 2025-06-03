@@ -19,4 +19,6 @@ greater than 1:
 python3 potrace_vectorize.py --colors 8 schoolsone_logo.jpeg colored_output.svg
 ```
 
-The generated `schoolsone_logo_color.svg` was created with the above command.
+The generated `schoolsone_logo.svg` was created with the above command and
+preserves the original logo colors. The older `schoolsone_logo_color.svg` file
+is kept for reference but contains the same output.
