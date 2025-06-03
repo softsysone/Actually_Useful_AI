@@ -11,7 +11,14 @@ import numpy as np
 import potrace
 
 
-def jpeg_to_svg(jpeg_path: str, svg_path: str, threshold: int = 128, *, fill: str = "black"):
+def jpeg_to_svg(
+    jpeg_path: str,
+    svg_path: str,
+    threshold: int = 128,
+    *,
+    fill: str = "black",
+    colors: int = 0,
+):
     """Convert a JPEG image to an SVG using potrace.
 
     Parameters
@@ -25,38 +32,69 @@ def jpeg_to_svg(jpeg_path: str, svg_path: str, threshold: int = 128, *, fill: st
     fill: str, optional
         Fill color used for the generated path.
     """
-    # Load image and convert to grayscale
-    image = Image.open(jpeg_path).convert('L')
-    # Binarize image using threshold
-    bitmap_data = np.array(image) > threshold
-    bitmap = potrace.Bitmap(bitmap_data)
-    path = bitmap.trace()
+    image = Image.open(jpeg_path).convert("RGB")
 
-    # Write SVG output
-    with open(svg_path, 'w') as f:
+    with open(svg_path, "w") as f:
         f.write('<svg xmlns="http://www.w3.org/2000/svg" ')
         f.write(f'width="{image.width}" height="{image.height}">\n')
-        for curve in path:
-            # Each curve represents a closed path starting at curve.start_point
-            f.write('<path d="')
-            # Move to the starting point of this curve
-            start = curve.start_point
-            f.write(f'M{start.x},{start.y} ')
-            for segment in curve:
-                if segment.is_corner:
-                    # Corner segments specify a control point (c) and end point
-                    c = segment.c
-                    end = segment.end_point
-                    f.write(f'L{c.x},{c.y} ')
-                    f.write(f'L{end.x},{end.y} ')
-                else:
-                    # Bezier curve with control points c1/c2
-                    c1, c2 = segment.c1, segment.c2
-                    end = segment.end_point
-                    f.write(f'C{c1.x},{c1.y} {c2.x},{c2.y} {end.x},{end.y} ')
-            # Close the path and apply fill color
-            f.write(f'Z" fill="{fill}"/>\n')
-        f.write('</svg>\n')
+
+        if colors and colors > 1:
+            # Quantize image to the requested number of colors
+            quantized = image.convert("P", palette=Image.Palette.ADAPTIVE, colors=colors)
+            palette = quantized.getpalette()[: colors * 3]
+            data = np.array(quantized)
+
+            for idx in range(colors):
+                mask = data == idx
+                if not mask.any():
+                    continue
+                bitmap = potrace.Bitmap(mask)
+                path = bitmap.trace()
+                color = "#%02x%02x%02x" % tuple(palette[idx * 3 : idx * 3 + 3])
+
+                for curve in path:
+                    f.write('<path d="')
+                    start = curve.start_point
+                    f.write(f'M{start.x},{start.y} ')
+                    for segment in curve:
+                        if segment.is_corner:
+                            c = segment.c
+                            end = segment.end_point
+                            f.write(f'L{c.x},{c.y} ')
+                            f.write(f'L{end.x},{end.y} ')
+                        else:
+                            c1, c2 = segment.c1, segment.c2
+                            end = segment.end_point
+                            f.write(
+                                f'C{c1.x},{c1.y} {c2.x},{c2.y} {end.x},{end.y} '
+                            )
+                    f.write(f'Z" fill="{color}"/>\n')
+        else:
+            # Monochrome conversion
+            gray = image.convert("L")
+            bitmap_data = np.array(gray) > threshold
+            bitmap = potrace.Bitmap(bitmap_data)
+            path = bitmap.trace()
+
+            for curve in path:
+                f.write('<path d="')
+                start = curve.start_point
+                f.write(f'M{start.x},{start.y} ')
+                for segment in curve:
+                    if segment.is_corner:
+                        c = segment.c
+                        end = segment.end_point
+                        f.write(f'L{c.x},{c.y} ')
+                        f.write(f'L{end.x},{end.y} ')
+                    else:
+                        c1, c2 = segment.c1, segment.c2
+                        end = segment.end_point
+                        f.write(
+                            f'C{c1.x},{c1.y} {c2.x},{c2.y} {end.x},{end.y} '
+                        )
+                f.write(f'Z" fill="{fill}"/>\n')
+
+        f.write("</svg>\n")
 
 
 def main() -> None:
@@ -81,6 +119,12 @@ def main() -> None:
         default="black",
         help="Fill color for the generated path",
     )
+    parser.add_argument(
+        "--colors",
+        type=int,
+        default=0,
+        help="Number of colors to preserve. If >1, performs color vectorization",
+    )
 
     args = parser.parse_args()
 
@@ -90,6 +134,7 @@ def main() -> None:
         svg_path,
         threshold=args.threshold,
         fill=args.fill,
+        colors=args.colors,
     )
     print(f"SVG written to {svg_path}")
 
